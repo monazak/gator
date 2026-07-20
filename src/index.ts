@@ -1,5 +1,6 @@
-import { setUser } from "./config";
-import { createUser, getUserByName, deleteAllUsers } from "./lib/db/queries/users"; // Adjust this relative path as needed
+import { config } from "process";
+import { readConfig, setUser } from "./config";
+import { createUser, getUserByName, deleteAllUsers, getUsers } from "./lib/db/queries/users"; // Adjust this relative path as needed
 
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
@@ -17,7 +18,6 @@ async function handlerLogin(cmdName: string, ...args: string[]) {
     setUser(username);
     console.log(`User has been successfully set to: "${username}"`);
 }
-
 async function handlerRegister(cmdName: string, ...args: string[]) {
     const username = args[0];
     if (!username) {
@@ -43,6 +43,24 @@ async function handlerReset() {
         process.exit(1);
     }
 }
+async function handlerUsers() {
+    try {
+        const allUsers = await getUsers();
+        const currenUserName = readConfig().currentUserName;
+
+        allUsers.forEach((user) => {
+            if (user.name == currenUserName) {
+                console.log(`* ${user.name} (current)`);
+            } else {
+                console.log(`* ${user.name}`);
+            }
+        });
+        process.exit(0);
+    } catch (error) {
+        console.error("Failed to retrieve user list from the database:", error);
+        process.exit(1);
+    }
+}
 
 function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler) {
     registry[cmdName] = handler;
@@ -61,6 +79,7 @@ async function main() {
     registerCommand(registry, "login", handlerLogin);
     registerCommand(registry, "register", handlerRegister);
     registerCommand(registry, "reset", handlerReset);
+    registerCommand(registry, "users", handlerUsers);
     const CLIArgs = process.argv.slice(2);
 
     if (CLIArgs.length < 1) {
