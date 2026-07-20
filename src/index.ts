@@ -2,7 +2,7 @@ import { config } from "process";
 import { readConfig, setUser } from "./config";
 import { createUser, getUserByName, deleteAllUsers, getUsers } from "./lib/db/queries/users"; // Adjust this relative path as needed
 import { fetchFeed } from "./lib/rss";
-import { createFeed } from "./lib/db/queries/feeds";
+import { createFeed, getAllFeedsWithUsers } from "./lib/db/queries/feeds";
 import { Feed, User } from "./lib/db/schema";
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
@@ -63,7 +63,6 @@ async function handlerUsers() {
         process.exit(1);
     }
 }
-
 async function handlerAgg() {
     try {
         const targetURL = "https://www.wagslane.dev/index.xml";
@@ -75,7 +74,6 @@ async function handlerAgg() {
         process.exit(1);
     }
 }
-
 function printFeed(feed: Feed, user: User) {
     console.log("=== Feed Added Successfully ===");
     console.log(`ID:         ${feed.id}`);
@@ -84,7 +82,6 @@ function printFeed(feed: Feed, user: User) {
     console.log(`Added By:   ${user.name} (${feed.user_id})`);
     console.log(`Created At: ${feed.createdAt}`);
 }
-
 async function handlerAddFeed(cmdName: string, ...args: string[]): Promise<void> {
     if (args.length < 2) {
         console.error("Error: 'addfeed' requires two arguments: <name> <url>");
@@ -112,12 +109,32 @@ async function handlerAddFeed(cmdName: string, ...args: string[]): Promise<void>
         process.exit(1);
     }
 }
+async function handlerFeeds(cmdName: string, ...args: string[]): Promise<void> {
+    try {
+        const records = await getAllFeedsWithUsers();
+
+        records.forEach((record) => {
+            console.log("========================================");
+            console.log(`* Feed Name: ${record.name}`);
+            console.log(`* URL:       ${record.url}`);
+            console.log(`* Added By:  ${record.userName}`);
+        });
+        process.exit(0);
+    } catch (error) {
+        console.error("Failed to retrieve feeds list:", error);
+        process.exit(1);
+    }
+}
 
 function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler) {
     registry[cmdName] = handler;
 }
 
-async function runCommand(registry: CommandsRegistry, cmdName: string, ...args: string[]) {
+async function runCommand(
+    registry: CommandsRegistry,
+    cmdName: string,
+    ...args: string[]
+): Promise<void> {
     const handler = registry[cmdName];
     if (!handler) {
         throw new Error(`Unknown command: "${cmdName}"`);
@@ -133,6 +150,7 @@ async function main() {
     registerCommand(registry, "users", handlerUsers);
     registerCommand(registry, "agg", handlerAgg);
     registerCommand(registry, "addfeed", handlerAddFeed);
+    registerCommand(registry, "feeds", handlerFeeds);
     const CLIArgs = process.argv.slice(2);
 
     if (CLIArgs.length < 1) {
