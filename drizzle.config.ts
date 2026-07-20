@@ -8,6 +8,6 @@ export default defineConfig({
   out: "src/lib/db/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: "postgres://monazakout:@localhost:5432/gator?sslmode=disable"
+    url: config.dbUrl
   },
 });
