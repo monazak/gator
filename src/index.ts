@@ -29,8 +29,8 @@ async function handlerRegister(cmdName: string, ...args: string[]) {
     }
     const newUser = await createUser(username);
 
-    setUser(username);
-    console.log(`User '${username}' has been successfully created!`);
+    setUser(newUser.name);
+    console.log(`User '${newUser.name}' has been successfully created!`);
     console.log(newUser);
 }
 
