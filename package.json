@@ -5,7 +5,8 @@
     "scripts": {
         "start": "tsx ./src/index.ts",
         "generate": "drizzle-kit generate",
-        "migrate": "drizzle-kit migrate"
+        "migrate": "drizzle-kit migrate",
+        "format": "prettier --write ."
     },
     "keywords": [],
     "author": "",

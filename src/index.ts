@@ -1,5 +1,5 @@
 import { setUser } from "./config";
-import { createUser, getUserByName } from "./lib/db/queries/users"; // Adjust this relative path as needed
+import { createUser, getUserByName, deleteAllUsers } from "./lib/db/queries/users"; // Adjust this relative path as needed
 
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
@@ -33,6 +33,16 @@ async function handlerRegister(cmdName: string, ...args: string[]) {
     console.log(`User '${newUser.name}' has been successfully created!`);
     console.log(newUser);
 }
+async function handlerReset() {
+    try {
+        await deleteAllUsers();
+        console.log("Database state has been successfully reset. All user records cleared.");
+        process.exit(0);
+    } catch (error) {
+        console.error("Critical: Failed to reset database tables:", error);
+        process.exit(1);
+    }
+}
 
 function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler) {
     registry[cmdName] = handler;
@@ -50,6 +60,7 @@ async function main() {
     const registry: CommandsRegistry = {};
     registerCommand(registry, "login", handlerLogin);
     registerCommand(registry, "register", handlerRegister);
+    registerCommand(registry, "reset", handlerReset);
     const CLIArgs = process.argv.slice(2);
 
     if (CLIArgs.length < 1) {
