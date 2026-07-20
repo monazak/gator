@@ -1,7 +1,7 @@
 import { config } from "process";
 import { readConfig, setUser } from "./config";
 import { createUser, getUserByName, deleteAllUsers, getUsers } from "./lib/db/queries/users"; // Adjust this relative path as needed
-
+import { fetchFeed } from "./lib/rss";
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
 type CommandsRegistry = Record<string, CommandHandler>;
@@ -62,6 +62,18 @@ async function handlerUsers() {
     }
 }
 
+async function handlerAgg() {
+    try {
+        const targetURL = "https://www.wagslane.dev/index.xml";
+        const feedData = await fetchFeed(targetURL);
+        console.dir(feedData, { depth: null, colors: true });
+        process.exit(0);
+    } catch (error) {
+        console.error("Execution failure during RSS aggregation command:", error);
+        process.exit(1);
+    }
+}
+
 function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler) {
     registry[cmdName] = handler;
 }
@@ -80,6 +92,7 @@ async function main() {
     registerCommand(registry, "register", handlerRegister);
     registerCommand(registry, "reset", handlerReset);
     registerCommand(registry, "users", handlerUsers);
+    registerCommand(registry, "agg", handlerAgg);
     const CLIArgs = process.argv.slice(2);
 
     if (CLIArgs.length < 1) {
