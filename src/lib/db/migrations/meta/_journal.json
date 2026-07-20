@@ -8,6 +8,13 @@
             "when": 1784557820479,
             "tag": "0000_familiar_the_renegades",
             "breakpoints": true
+        },
+        {
+            "idx": 1,
+            "version": "7",
+            "when": 1784573868995,
+            "tag": "0001_long_vance_astro",
+            "breakpoints": true
         }
     ]
 }

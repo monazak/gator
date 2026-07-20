@@ -2,6 +2,8 @@ import { config } from "process";
 import { readConfig, setUser } from "./config";
 import { createUser, getUserByName, deleteAllUsers, getUsers } from "./lib/db/queries/users"; // Adjust this relative path as needed
 import { fetchFeed } from "./lib/rss";
+import { createFeed } from "./lib/db/queries/feeds";
+import { Feed, User } from "./lib/db/schema";
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
 type CommandsRegistry = Record<string, CommandHandler>;
@@ -74,6 +76,43 @@ async function handlerAgg() {
     }
 }
 
+function printFeed(feed: Feed, user: User) {
+    console.log("=== Feed Added Successfully ===");
+    console.log(`ID:         ${feed.id}`);
+    console.log(`Name:       ${feed.name}`);
+    console.log(`URL:        ${feed.url}`);
+    console.log(`Added By:   ${user.name} (${feed.user_id})`);
+    console.log(`Created At: ${feed.createdAt}`);
+}
+
+async function handlerAddFeed(cmdName: string, ...args: string[]): Promise<void> {
+    if (args.length < 2) {
+        console.error("Error: 'addfeed' requires two arguments: <name> <url>");
+        process.exit(1);
+    }
+    const [name, url] = args;
+
+    try {
+        const user = await getUserByName(readConfig().currentUserName);
+        if (!user) {
+            console.error(
+                `Error: Active user '${readConfig().currentUserName}' not found in the database.`
+            );
+            process.exit(1);
+        }
+        const newFeed = await createFeed(name, url, user.id);
+        printFeed(newFeed, user);
+        process.exit(0);
+    } catch (error: any) {
+        if (error.code === "23505") {
+            console.error(`Error: A feed with the URL '${url}' already exists.`);
+        } else {
+            console.error("Execution failure during addfeed processing:", error);
+        }
+        process.exit(1);
+    }
+}
+
 function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler) {
     registry[cmdName] = handler;
 }
@@ -93,6 +132,7 @@ async function main() {
     registerCommand(registry, "reset", handlerReset);
     registerCommand(registry, "users", handlerUsers);
     registerCommand(registry, "agg", handlerAgg);
+    registerCommand(registry, "addfeed", handlerAddFeed);
     const CLIArgs = process.argv.slice(2);
 
     if (CLIArgs.length < 1) {
