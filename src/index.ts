@@ -9,6 +9,30 @@ type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
 type CommandsRegistry = Record<string, CommandHandler>;
 
+type UserCommandHandler = (
+  cmdName: string,
+  user: User,
+  ...args: string[]
+) => Promise<void>;
+
+export function  middlewareLoggedIn(handler: UserCommandHandler) : CommandHandler{
+        return async (cmdName: string, ...args: string[]):  Promise<void> => {
+            const currentUserName = readConfig().currentUserName;
+            if(!currentUserName){
+                console.error("Error: No user logged in.")
+                process.exit(1)
+            }
+            const user = await getUserByName(currentUserName);
+            if (!user){
+                console.error(`Error: Active user '${currentUserName}' not found in the database.`);            
+                process.exit(1);
+            }
+            await handler(cmdName, user, ...args)
+        }
+};
+
+
+
 async function handlerLogin(cmdName: string, ...args: string[]) {
     const username = args[0];
     if (!username) {
@@ -83,7 +107,7 @@ function printFeed(feed: Feed, user: User) {
     console.log(`Added By:   ${user.name} (${feed.user_id})`);
     console.log(`Created At: ${feed.createdAt}`);
 }
-async function handlerAddFeed(cmdName: string, ...args: string[]): Promise<void> {
+async function handlerAddFeed(cmdName: string, user:User, ...args: string[]): Promise<void> {
     if (args.length < 2) {
         console.error("Error: 'addfeed' requires two arguments: <name> <url>");
         process.exit(1);
@@ -91,14 +115,6 @@ async function handlerAddFeed(cmdName: string, ...args: string[]): Promise<void>
     const [name, url] = args;
 
     try {
-        const user = await getUserByName(readConfig().currentUserName);
-        if (!user) {
-            console.error(
-                `Error: Active user '${readConfig().currentUserName}' not found in the database.`
-            );
-            process.exit(1);
-        }
-
         const newFeed = await createFeed(name, url, user.id);
         const followResult = await createFeedFollow(newFeed.id, user.id);
         printFeed(newFeed, user);
@@ -129,7 +145,7 @@ async function handlerFeeds(cmdName: string, ...args: string[]): Promise<void> {
         process.exit(1);
     }
 }
-async function handlerFollow(cmdName: string, ...args: string[]): Promise<void> {
+async function handlerFollow(cmdName: string, user:User,...args: string[]): Promise<void> {
     if (args.length < 1) {
         console.error("Error: 'follow' requires one argument:<url>");
         process.exit(1);
@@ -137,12 +153,6 @@ async function handlerFollow(cmdName: string, ...args: string[]): Promise<void> 
     const [url] = args;
 
     try {
-        const user = await getUserByName(readConfig().currentUserName);
-        if (!user) {
-            console.error(`Error: Active user '${readConfig().currentUserName}' not found.`);
-            process.exit(1);
-        }
-
         const feed = await getFeedByUrl(url);
         if (!feed) {
             console.error(`Error: No feed found with URL '${url}'.`);
@@ -160,13 +170,8 @@ async function handlerFollow(cmdName: string, ...args: string[]): Promise<void> 
         process.exit(1);
     }
 }
-async function handlerFollowing(cmdName: string, ...args: string[]): Promise<void> {
+async function handlerFollowing(cmdName: string, user:User, ...args: string[]): Promise<void> {
     try {
-        const user = await getUserByName(readConfig().currentUserName);
-        if (!user) {
-            console.error(`Error: Active user '${readConfig().currentUserName}' not found.`);
-            process.exit(1);
-        }
 
         const follows = await getFeedFollowsForUser(user.id);
         if (follows.length == 0) {
@@ -204,10 +209,10 @@ async function main() {
     registerCommand(registry, "reset", handlerReset);
     registerCommand(registry, "users", handlerUsers);
     registerCommand(registry, "agg", handlerAgg);
-    registerCommand(registry, "addfeed", handlerAddFeed);
+    registerCommand(registry, "addfeed", middlewareLoggedIn(handlerAddFeed));
     registerCommand(registry, "feeds", handlerFeeds);
-    registerCommand(registry, "follow", handlerFollow);
-    registerCommand(registry, "following", handlerFollowing);
+    registerCommand(registry, "follow", middlewareLoggedIn(handlerFollow));
+    registerCommand(registry, "following", middlewareLoggedIn(handlerFollowing));
     const CLIArgs = process.argv.slice(2);
 
     if (CLIArgs.length < 1) {
