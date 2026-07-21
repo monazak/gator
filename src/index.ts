@@ -4,7 +4,7 @@ import { createUser, getUserByName, deleteAllUsers, getUsers } from "./lib/db/qu
 import { fetchFeed } from "./lib/rss";
 import { createFeed, getAllFeedsWithUsers, getFeedByUrl } from "./lib/db/queries/feeds";
 import { Feed, User } from "./lib/db/schema";
-import { createFeedFollow, getFeedFollowsForUser } from "./lib/db/queries/feed_follows";
+import { createFeedFollow, getFeedFollowsForUser, deleteFeedFollow } from "./lib/db/queries/feed_follows";
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
 type CommandsRegistry = Record<string, CommandHandler>;
@@ -188,6 +188,26 @@ async function handlerFollowing(cmdName: string, user:User, ...args: string[]): 
         process.exit(1);
     }
 }
+async function handlerUnFollowing(cmdName: string, user:User, ...args: string[]): Promise<void> {
+    if (args.length < 1) {
+        console.error("Error: 'unfollow' requires one arguments: <url>");
+        process.exit(1);
+    }
+    const [url] = args;
+    
+    try {  
+        const deleted = await deleteFeedFollow(user.id, url);
+        if (!deleted) {
+            console.error(`Error: You are not following a feed with URL '${url}'.`);
+            process.exit(0);
+        }
+        console.log(`Successfully unfollowed '${url}'.`);
+        process.exit(0);
+    } catch (error: any) {
+        console.error("Execution failure during unfollow operation:", error);
+        process.exit(1);
+    }
+}
 function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler) {
     registry[cmdName] = handler;
 }
@@ -213,6 +233,7 @@ async function main() {
     registerCommand(registry, "feeds", handlerFeeds);
     registerCommand(registry, "follow", middlewareLoggedIn(handlerFollow));
     registerCommand(registry, "following", middlewareLoggedIn(handlerFollowing));
+    registerCommand(registry, "unfollow", middlewareLoggedIn(handlerUnFollowing));
     const CLIArgs = process.argv.slice(2);
 
     if (CLIArgs.length < 1) {
