@@ -18,3 +18,8 @@ export async function getAllFeedsWithUsers() {
         .from(feeds)
         .innerJoin(users, eq(feeds.user_id, users.id));
 }
+
+export async function getFeedByUrl( url: string) {
+    const [feed] = await db.select().from(feeds).where(eq(feeds.url, url))
+    return feed;
+}

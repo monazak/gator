@@ -2,8 +2,9 @@ import { config } from "process";
 import { readConfig, setUser } from "./config";
 import { createUser, getUserByName, deleteAllUsers, getUsers } from "./lib/db/queries/users"; // Adjust this relative path as needed
 import { fetchFeed } from "./lib/rss";
-import { createFeed, getAllFeedsWithUsers } from "./lib/db/queries/feeds";
+import { createFeed, getAllFeedsWithUsers, getFeedByUrl } from "./lib/db/queries/feeds";
 import { Feed, User } from "./lib/db/schema";
+import { createFeedFollow, getFeedFollowsForUser } from "./lib/db/queries/feed_follows"
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
 type CommandsRegistry = Record<string, CommandHandler>;
@@ -97,8 +98,11 @@ async function handlerAddFeed(cmdName: string, ...args: string[]): Promise<void>
             );
             process.exit(1);
         }
+        
         const newFeed = await createFeed(name, url, user.id);
+        const followResult = await createFeedFollow(newFeed.id, user.id )
         printFeed(newFeed, user);
+        console.log(`User '${followResult.userName}' is now following '${followResult.feedName}'.`);
         process.exit(0);
     } catch (error: any) {
         if (error.code === "23505") {
@@ -125,11 +129,63 @@ async function handlerFeeds(cmdName: string, ...args: string[]): Promise<void> {
         process.exit(1);
     }
 }
+async function handlerFollow(cmdName: string, ...args: string[]): Promise<void> {
+     if (args.length < 1) {
+        console.error("Error: 'follow' requires one argument:<url>");
+        process.exit(1);
+    }
+    const [url] = args;
 
+    try {
+        const user = await getUserByName(readConfig().currentUserName)
+        if(!user){
+            console.error(`Error: Active user '${readConfig().currentUserName}' not found.`)
+            process.exit(1);
+        }
+
+        const feed = await getFeedByUrl(url);
+        if(!feed){
+            console.error(`Error: No feed found with URL '${url}'.`)
+            process.exit(1);
+        }    
+        const followResult = await createFeedFollow(feed.id, user.id)
+        console.log(`User '${followResult.userName}' is now following '${followResult.feedName}'.`);   
+        process.exit(0);
+    } catch (error: any) {
+        if (error.code === "23505") {
+            console.error(`Error: You are already following this feed.`);
+        } else {
+            console.error("Execution failure during follow operation:", error);
+        }
+        process.exit(1);
+    }
+}
+async function handlerFollowing(cmdName: string, ...args: string[]): Promise<void> {
+    try {
+        const user = await getUserByName(readConfig().currentUserName)
+        if(!user){
+            console.error(`Error: Active user '${readConfig().currentUserName}' not found.`)
+            process.exit(1);
+        }
+
+        const follows = await getFeedFollowsForUser(user.id);
+        if(follows.length == 0){
+            console.error("Not following any feeds.")
+            process.exit(0);
+        }  
+        console.log(`=========== ${readConfig().currentUserName} follows: ===========`)
+        follows.forEach((item)=>{
+            console.log(`* ${item.feedName}`)
+        })  
+        process.exit(0);
+    } catch (error: any) {
+        console.error("Failed to fetch followed feeds:", error)
+        process.exit(1);
+    }
+}
 function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler) {
     registry[cmdName] = handler;
 }
-
 async function runCommand(
     registry: CommandsRegistry,
     cmdName: string,
@@ -141,7 +197,6 @@ async function runCommand(
     }
     await handler(cmdName, ...args);
 }
-
 async function main() {
     const registry: CommandsRegistry = {};
     registerCommand(registry, "login", handlerLogin);
@@ -151,6 +206,8 @@ async function main() {
     registerCommand(registry, "agg", handlerAgg);
     registerCommand(registry, "addfeed", handlerAddFeed);
     registerCommand(registry, "feeds", handlerFeeds);
+    registerCommand(registry, "follow", handlerFollow);
+    registerCommand(registry, "following", handlerFollowing);
     const CLIArgs = process.argv.slice(2);
 
     if (CLIArgs.length < 1) {
