@@ -4,7 +4,7 @@ import { createUser, getUserByName, deleteAllUsers, getUsers } from "./lib/db/qu
 import { fetchFeed } from "./lib/rss";
 import { createFeed, getAllFeedsWithUsers, getFeedByUrl } from "./lib/db/queries/feeds";
 import { Feed, User } from "./lib/db/schema";
-import { createFeedFollow, getFeedFollowsForUser } from "./lib/db/queries/feed_follows"
+import { createFeedFollow, getFeedFollowsForUser } from "./lib/db/queries/feed_follows";
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
 type CommandsRegistry = Record<string, CommandHandler>;
@@ -98,9 +98,9 @@ async function handlerAddFeed(cmdName: string, ...args: string[]): Promise<void>
             );
             process.exit(1);
         }
-        
+
         const newFeed = await createFeed(name, url, user.id);
-        const followResult = await createFeedFollow(newFeed.id, user.id )
+        const followResult = await createFeedFollow(newFeed.id, user.id);
         printFeed(newFeed, user);
         console.log(`User '${followResult.userName}' is now following '${followResult.feedName}'.`);
         process.exit(0);
@@ -130,26 +130,26 @@ async function handlerFeeds(cmdName: string, ...args: string[]): Promise<void> {
     }
 }
 async function handlerFollow(cmdName: string, ...args: string[]): Promise<void> {
-     if (args.length < 1) {
+    if (args.length < 1) {
         console.error("Error: 'follow' requires one argument:<url>");
         process.exit(1);
     }
     const [url] = args;
 
     try {
-        const user = await getUserByName(readConfig().currentUserName)
-        if(!user){
-            console.error(`Error: Active user '${readConfig().currentUserName}' not found.`)
+        const user = await getUserByName(readConfig().currentUserName);
+        if (!user) {
+            console.error(`Error: Active user '${readConfig().currentUserName}' not found.`);
             process.exit(1);
         }
 
         const feed = await getFeedByUrl(url);
-        if(!feed){
-            console.error(`Error: No feed found with URL '${url}'.`)
+        if (!feed) {
+            console.error(`Error: No feed found with URL '${url}'.`);
             process.exit(1);
-        }    
-        const followResult = await createFeedFollow(feed.id, user.id)
-        console.log(`User '${followResult.userName}' is now following '${followResult.feedName}'.`);   
+        }
+        const followResult = await createFeedFollow(feed.id, user.id);
+        console.log(`User '${followResult.userName}' is now following '${followResult.feedName}'.`);
         process.exit(0);
     } catch (error: any) {
         if (error.code === "23505") {
@@ -162,24 +162,24 @@ async function handlerFollow(cmdName: string, ...args: string[]): Promise<void> 
 }
 async function handlerFollowing(cmdName: string, ...args: string[]): Promise<void> {
     try {
-        const user = await getUserByName(readConfig().currentUserName)
-        if(!user){
-            console.error(`Error: Active user '${readConfig().currentUserName}' not found.`)
+        const user = await getUserByName(readConfig().currentUserName);
+        if (!user) {
+            console.error(`Error: Active user '${readConfig().currentUserName}' not found.`);
             process.exit(1);
         }
 
         const follows = await getFeedFollowsForUser(user.id);
-        if(follows.length == 0){
-            console.error("Not following any feeds.")
+        if (follows.length == 0) {
+            console.error("Not following any feeds.");
             process.exit(0);
-        }  
-        console.log(`=========== ${readConfig().currentUserName} follows: ===========`)
-        follows.forEach((item)=>{
-            console.log(`* ${item.feedName}`)
-        })  
+        }
+        console.log(`=========== ${readConfig().currentUserName} follows: ===========`);
+        follows.forEach((item) => {
+            console.log(`* ${item.feedName}`);
+        });
         process.exit(0);
     } catch (error: any) {
-        console.error("Failed to fetch followed feeds:", error)
+        console.error("Failed to fetch followed feeds:", error);
         process.exit(1);
     }
 }
