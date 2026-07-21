@@ -1,20 +1,27 @@
 {
-    "version": "7",
-    "dialect": "postgresql",
-    "entries": [
-        {
-            "idx": 0,
-            "version": "7",
-            "when": 1784557820479,
-            "tag": "0000_familiar_the_renegades",
-            "breakpoints": true
-        },
-        {
-            "idx": 1,
-            "version": "7",
-            "when": 1784573868995,
-            "tag": "0001_long_vance_astro",
-            "breakpoints": true
-        }
-    ]
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1784557820479,
+      "tag": "0000_familiar_the_renegades",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784573868995,
+      "tag": "0001_long_vance_astro",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784619893909,
+      "tag": "0002_tricky_psylocke",
+      "breakpoints": true
+    }
+  ]
 }
