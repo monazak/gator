@@ -3,6 +3,8 @@ import { db } from "..";
 import { feeds, users } from "../schema";
 import { eq, sql } from "drizzle-orm";
 import console from "node:console";
+import { createPost } from "./posts";
+
 export async function createFeed(name: string, url: string, user_id: string) {
     const [feed] = await db.insert(feeds).values({ name, url, user_id }).returning();
     return feed;
@@ -48,24 +50,41 @@ export async function getNextFeedToFetch() {
     return feed?? null;
 }
 
-export async function scrapeFeeds(){
+export async function scrapeFeeds() {
     const feed = await getNextFeedToFetch();
-    if (!feed){
-        console.log('no feeds foung to fetch. ');
+    if (!feed) {
+        console.log("No feeds found to fetch.");
         return;
     }
-    console.log(`\nFetching feed: ${feed.name} (${feed.url})...`);
-    
-    await markFeedFetched(feed.id)
 
-    try{
+    console.log(`\nFetching feed: ${feed.name} (${feed.url})...`);
+    await markFeedFetched(feed.id);
+
+    try {
         const rssData = await fetchFeed(feed.url);
-        console.log(`--- ${rssData.channel.title} (${rssData.channel.item.length} items) ---`)
-        for (const item of rssData.channel.item){
-            console.log(`* ${item.title}`)
-        } 
-    }catch(error){
-        console.error(`Failed to fetch feed '${feed.name}':`, error)
+        let savedCount = 0;
+
+        for (const item of rssData.channel.item) {
+            if (!item.title || !item.link) continue;
+
+            const publishedAt = parsePubDate(item.pubDate);
+
+            const inserted = await createPost({
+                title: item.title,
+                url: item.link,
+                description: item.description ?? null,
+                publishedAt: publishedAt,
+                feedId: feed.id,
+            });
+
+            if (inserted) {
+                savedCount++;
+            }
+        }
+
+        console.log(`Saved ${savedCount} new post(s) from ${feed.name}`);
+    } catch (error) {
+        console.error(`Failed to fetch feed '${feed.name}':`, error);
     }
 }
 
@@ -86,4 +105,9 @@ export function parseDuration(durationStr: string): number{
         case "h":return value * 60 * 60 * 1000;
         default: throw new Error("Unsupported time unit");
     }
+}
+function parsePubDate(pubDateStr?: string): Date | null {
+    if (!pubDateStr) return null;
+    const parsed = new Date(pubDateStr);
+    return isNaN(parsed.getTime()) ? null : parsed;
 }
