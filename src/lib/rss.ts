@@ -29,7 +29,17 @@ export async function fetchFeed(feedURL: string) {
     }
     const xmlText = await response.text();
 
-    const parserObject = new XMLParser({ processEntities: false });
+    const parserObject = new XMLParser({
+        processEntities: false,
+        ignoreAttributes: false,
+        maxNestedTags: 99999,
+        cdataPropName: "__cdata",
+        stopNodes: [
+            "description",
+            "content:encoded",
+            "rss.channel.item.description",
+        ],
+    });
 
     const parsedData = parserObject.parse(xmlText);
     console.log("-------parsedData------", parsedData);
