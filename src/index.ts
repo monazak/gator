@@ -2,7 +2,7 @@ import { config } from "process";
 import { readConfig, setUser } from "./config";
 import { createUser, getUserByName, deleteAllUsers, getUsers } from "./lib/db/queries/users"; // Adjust this relative path as needed
 import { fetchFeed } from "./lib/rss";
-import { createFeed, getAllFeedsWithUsers, getFeedByUrl } from "./lib/db/queries/feeds";
+import { createFeed, getAllFeedsWithUsers, getFeedByUrl, parseDuration, scrapeFeeds} from "./lib/db/queries/feeds";
 import { Feed, User } from "./lib/db/schema";
 import { createFeedFollow, getFeedFollowsForUser, deleteFeedFollow } from "./lib/db/queries/feed_follows";
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
@@ -88,16 +88,30 @@ async function handlerUsers() {
         process.exit(1);
     }
 }
-async function handlerAgg() {
-    try {
-        const targetURL = "https://www.wagslane.dev/index.xml";
-        const feedData = await fetchFeed(targetURL);
-        console.dir(feedData, { depth: null, colors: true });
-        process.exit(0);
-    } catch (error) {
-        console.error("Execution failure during RSS aggregation command:", error);
+async function handlerAgg( cmdName: string, ...args: string[]) {
+    if (args.length < 1) {
+        console.error("Error: 'agg' requiresrequires a time duration argument (e.g., 1s, 1m, 1h)");
         process.exit(1);
     }
+    const time = args[0]
+    const timeBetweenRequests = parseDuration (time) 
+    console.log(`Collecting feeds every ${time}`);
+
+    await scrapeFeeds().catch((error)=>console.error("Scrape error:", error))
+    
+    const interval =  setInterval(() => {
+        scrapeFeeds().catch((error)=>console.error("Scrape error:", error))
+    }, timeBetweenRequests);
+
+    await new Promise <void>((resolve)=>{
+        process.on('SIGINT',()=>{
+            console.log("\nShutting down feed aggregator...");
+            clearInterval(interval);
+            resolve();
+        })
+    })
+    process.exit(0);
+    
 }
 function printFeed(feed: Feed, user: User) {
     console.log("=== Feed Added Successfully ===");
