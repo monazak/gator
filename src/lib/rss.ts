@@ -17,7 +17,7 @@ export type RSSFeed = {
 
 export async function fetchFeed(feedURL: string) {
     if (!feedURL || typeof feedURL !== "string") {
-        throw new Error("unvailed url");
+        throw new Error("invalid url");
     }
     const response = await fetch(feedURL, {
         headers: {
@@ -42,7 +42,6 @@ export async function fetchFeed(feedURL: string) {
     });
 
     const parsedData = parserObject.parse(xmlText);
-    console.log("-------parsedData------", parsedData);
 
     if (!parsedData || !parsedData.rss || !parsedData.rss.channel) {
         throw new Error(
@@ -62,7 +61,7 @@ export async function fetchFeed(feedURL: string) {
     }
 
     let rawItems = channelData.item;
-    let arrayItems: RSSItem[] = [];
+    let arrayItems: any[] = [];
 
     if (rawItems) {
         if (Array.isArray(rawItems)) {
@@ -72,16 +71,37 @@ export async function fetchFeed(feedURL: string) {
         }
     }
     const cleanItems: RSSItem[] = [];
+
     arrayItems.forEach((item) => {
-        if (item.title && item.link && item.description && item.pubDate) {
+        if (item.title && item.link && item.pubDate) {
+            // Extract raw description string or CDATA object content
+            let rawDesc = 
+                (typeof item.description === "object" ? item.description?.__cdata : item.description) ||
+                (typeof item["content:encoded"] === "object" ? item["content:encoded"]?.__cdata : item["content:encoded"]) ||
+                item.summary ||
+                "";
+
+            // Strip HTML tags and CDATA markers to test if there's actual content
+            const textOnly = String(rawDesc)
+                .replace(/<!\[CDATA\[|]]>/g, "")
+                .replace(/<[^>]*>?/gm, "")
+                .trim();
+
+            // If empty OR just "Comments" (like Hacker News), fallback to the title
+            let finalDesc = textOnly;
+            if (!textOnly || textOnly.toLowerCase() === "comments") {
+                finalDesc = item.title;
+            }
+
             cleanItems.push({
                 title: item.title,
                 link: item.link,
-                description: item.description,
+                description: finalDesc,
                 pubDate: item.pubDate,
             });
         }
     });
+
     return {
         channel: {
             title,
