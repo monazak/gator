@@ -5,6 +5,8 @@ import { fetchFeed } from "./lib/rss";
 import { createFeed, getAllFeedsWithUsers, getFeedByUrl, parseDuration, scrapeFeeds} from "./lib/db/queries/feeds";
 import { Feed, User } from "./lib/db/schema";
 import { createFeedFollow, getFeedFollowsForUser, deleteFeedFollow } from "./lib/db/queries/feed_follows";
+import { getPostsForUser } from "./lib/db/queries/posts";
+
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
 type CommandsRegistry = Record<string, CommandHandler>;
@@ -222,6 +224,38 @@ async function handlerUnFollowing(cmdName: string, user:User, ...args: string[])
         process.exit(1);
     }
 }
+async function handlerBrowse(cmdName: string, user: User, ...args: string[]) {
+    let limit = 2;
+    if (args[0]) {
+        const parsedLimit = parseInt(args[0], 10);
+        if (!isNaN(parsedLimit) && parsedLimit > 0) {
+            limit = parsedLimit;
+        }
+    }
+
+    const userPosts = await getPostsForUser(user.id, limit);
+
+    if (userPosts.length === 0) {
+        console.log("No posts found. Try following some feeds or running 'agg' to fetch posts!");
+        return;
+    }
+
+    console.log(`\n--- Showing latest ${userPosts.length} post(s) ---`);
+    for (const post of userPosts) {
+        console.log(`\n📌 ${post.title}`);
+        console.log(`🔗 ${post.url}`);
+        if (post.publishedAt) {
+            console.log(`📅 Published: ${post.publishedAt.toLocaleString()}`);
+        }
+        if (post.description) {
+            // Strip HTML tags for clean CLI rendering if needed
+            const cleanDesc = post.description.replace(/<[^>]*>?/gm, "").trim();
+            const preview = cleanDesc.length > 150 ? `${cleanDesc.slice(0, 150)}...` : cleanDesc;
+            console.log(`📝 ${preview}`);
+        }
+    }
+}
+
 function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler) {
     registry[cmdName] = handler;
 }
@@ -248,6 +282,8 @@ async function main() {
     registerCommand(registry, "follow", middlewareLoggedIn(handlerFollow));
     registerCommand(registry, "following", middlewareLoggedIn(handlerFollowing));
     registerCommand(registry, "unfollow", middlewareLoggedIn(handlerUnFollowing));
+    registerCommand(registry, "browse", middlewareLoggedIn(handlerBrowse));
+    
     const CLIArgs = process.argv.slice(2);
 
     if (CLIArgs.length < 1) {
