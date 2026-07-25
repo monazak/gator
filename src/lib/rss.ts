@@ -34,11 +34,7 @@ export async function fetchFeed(feedURL: string) {
         ignoreAttributes: false,
         maxNestedTags: 99999,
         cdataPropName: "__cdata",
-        stopNodes: [
-            "description",
-            "content:encoded",
-            "rss.channel.item.description",
-        ],
+        stopNodes: ["description", "content:encoded", "rss.channel.item.description"],
     });
 
     const parsedData = parserObject.parse(xmlText);
@@ -75,9 +71,13 @@ export async function fetchFeed(feedURL: string) {
     arrayItems.forEach((item) => {
         if (item.title && item.link && item.pubDate) {
             // Extract raw description string or CDATA object content
-            let rawDesc = 
-                (typeof item.description === "object" ? item.description?.__cdata : item.description) ||
-                (typeof item["content:encoded"] === "object" ? item["content:encoded"]?.__cdata : item["content:encoded"]) ||
+            let rawDesc =
+                (typeof item.description === "object"
+                    ? item.description?.__cdata
+                    : item.description) ||
+                (typeof item["content:encoded"] === "object"
+                    ? item["content:encoded"]?.__cdata
+                    : item["content:encoded"]) ||
                 item.summary ||
                 "";
 

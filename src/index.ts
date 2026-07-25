@@ -2,38 +2,42 @@ import { config } from "process";
 import { readConfig, setUser } from "./config";
 import { createUser, getUserByName, deleteAllUsers, getUsers } from "./lib/db/queries/users"; // Adjust this relative path as needed
 import { fetchFeed } from "./lib/rss";
-import { createFeed, getAllFeedsWithUsers, getFeedByUrl, parseDuration, scrapeFeeds} from "./lib/db/queries/feeds";
+import {
+    createFeed,
+    getAllFeedsWithUsers,
+    getFeedByUrl,
+    parseDuration,
+    scrapeFeeds,
+} from "./lib/db/queries/feeds";
 import { Feed, User } from "./lib/db/schema";
-import { createFeedFollow, getFeedFollowsForUser, deleteFeedFollow } from "./lib/db/queries/feed_follows";
+import {
+    createFeedFollow,
+    getFeedFollowsForUser,
+    deleteFeedFollow,
+} from "./lib/db/queries/feed_follows";
 import { getPostsForUser } from "./lib/db/queries/posts";
 
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
 type CommandsRegistry = Record<string, CommandHandler>;
 
-type UserCommandHandler = (
-  cmdName: string,
-  user: User,
-  ...args: string[]
-) => Promise<void>;
+type UserCommandHandler = (cmdName: string, user: User, ...args: string[]) => Promise<void>;
 
-export function  middlewareLoggedIn(handler: UserCommandHandler) : CommandHandler{
-        return async (cmdName: string, ...args: string[]):  Promise<void> => {
-            const currentUserName = readConfig().currentUserName;
-            if(!currentUserName){
-                console.error("Error: No user logged in.")
-                process.exit(1)
-            }
-            const user = await getUserByName(currentUserName);
-            if (!user){
-                console.error(`Error: Active user '${currentUserName}' not found in the database.`);            
-                process.exit(1);
-            }
-            await handler(cmdName, user, ...args)
+export function middlewareLoggedIn(handler: UserCommandHandler): CommandHandler {
+    return async (cmdName: string, ...args: string[]): Promise<void> => {
+        const currentUserName = readConfig().currentUserName;
+        if (!currentUserName) {
+            console.error("Error: No user logged in.");
+            process.exit(1);
         }
-};
-
-
+        const user = await getUserByName(currentUserName);
+        if (!user) {
+            console.error(`Error: Active user '${currentUserName}' not found in the database.`);
+            process.exit(1);
+        }
+        await handler(cmdName, user, ...args);
+    };
+}
 
 async function handlerLogin(cmdName: string, ...args: string[]) {
     const username = args[0];
@@ -90,30 +94,29 @@ async function handlerUsers() {
         process.exit(1);
     }
 }
-async function handlerAgg( cmdName: string, ...args: string[]) {
+async function handlerAgg(cmdName: string, ...args: string[]) {
     if (args.length < 1) {
         console.error("Error: 'agg' requiresrequires a time duration argument (e.g., 1s, 1m, 1h)");
         process.exit(1);
     }
-    const time = args[0]
-    const timeBetweenRequests = parseDuration (time) 
+    const time = args[0];
+    const timeBetweenRequests = parseDuration(time);
     console.log(`Collecting feeds every ${time}`);
 
-    await scrapeFeeds().catch((error)=>console.error("Scrape error:", error))
-    
-    const interval =  setInterval(() => {
-        scrapeFeeds().catch((error)=>console.error("Scrape error:", error))
+    await scrapeFeeds().catch((error) => console.error("Scrape error:", error));
+
+    const interval = setInterval(() => {
+        scrapeFeeds().catch((error) => console.error("Scrape error:", error));
     }, timeBetweenRequests);
 
-    await new Promise <void>((resolve)=>{
-        process.on('SIGINT',()=>{
+    await new Promise<void>((resolve) => {
+        process.on("SIGINT", () => {
             console.log("\nShutting down feed aggregator...");
             clearInterval(interval);
             resolve();
-        })
-    })
+        });
+    });
     process.exit(0);
-    
 }
 function printFeed(feed: Feed, user: User) {
     console.log("=== Feed Added Successfully ===");
@@ -123,7 +126,7 @@ function printFeed(feed: Feed, user: User) {
     console.log(`Added By:   ${user.name} (${feed.user_id})`);
     console.log(`Created At: ${feed.createdAt}`);
 }
-async function handlerAddFeed(cmdName: string, user:User, ...args: string[]): Promise<void> {
+async function handlerAddFeed(cmdName: string, user: User, ...args: string[]): Promise<void> {
     if (args.length < 2) {
         console.error("Error: 'addfeed' requires two arguments: <name> <url>");
         process.exit(1);
@@ -161,7 +164,7 @@ async function handlerFeeds(cmdName: string, ...args: string[]): Promise<void> {
         process.exit(1);
     }
 }
-async function handlerFollow(cmdName: string, user:User,...args: string[]): Promise<void> {
+async function handlerFollow(cmdName: string, user: User, ...args: string[]): Promise<void> {
     if (args.length < 1) {
         console.error("Error: 'follow' requires one argument:<url>");
         process.exit(1);
@@ -186,9 +189,8 @@ async function handlerFollow(cmdName: string, user:User,...args: string[]): Prom
         process.exit(1);
     }
 }
-async function handlerFollowing(cmdName: string, user:User, ...args: string[]): Promise<void> {
+async function handlerFollowing(cmdName: string, user: User, ...args: string[]): Promise<void> {
     try {
-
         const follows = await getFeedFollowsForUser(user.id);
         if (follows.length == 0) {
             console.error("Not following any feeds.");
@@ -204,14 +206,14 @@ async function handlerFollowing(cmdName: string, user:User, ...args: string[]): 
         process.exit(1);
     }
 }
-async function handlerUnFollowing(cmdName: string, user:User, ...args: string[]): Promise<void> {
+async function handlerUnFollowing(cmdName: string, user: User, ...args: string[]): Promise<void> {
     if (args.length < 1) {
         console.error("Error: 'unfollow' requires one arguments: <url>");
         process.exit(1);
     }
     const [url] = args;
-    
-    try {  
+
+    try {
         const deleted = await deleteFeedFollow(user.id, url);
         if (!deleted) {
             console.error(`Error: You are not following a feed with URL '${url}'.`);
@@ -283,7 +285,7 @@ async function main() {
     registerCommand(registry, "following", middlewareLoggedIn(handlerFollowing));
     registerCommand(registry, "unfollow", middlewareLoggedIn(handlerUnFollowing));
     registerCommand(registry, "browse", middlewareLoggedIn(handlerBrowse));
-    
+
     const CLIArgs = process.argv.slice(2);
 
     if (CLIArgs.length < 1) {

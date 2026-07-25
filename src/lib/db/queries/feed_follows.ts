@@ -36,21 +36,15 @@ export async function getFeedFollowsForUser(user_id: string) {
         .where(eq(feed_follows.user_id, user_id));
 }
 
-export async function deleteFeedFollow(user_id: string, feed_url:string) {
-
-    const [feed] = await db.select({id:feeds.id}).from(feeds).where(eq(feeds.url, feed_url));
-    if (!feed){
-        return false
+export async function deleteFeedFollow(user_id: string, feed_url: string) {
+    const [feed] = await db.select({ id: feeds.id }).from(feeds).where(eq(feeds.url, feed_url));
+    if (!feed) {
+        return false;
     }
     const result = await db
         .delete(feed_follows)
-        .where(
-            and(
-                eq(feed_follows.user_id, user_id),
-                eq(feed_follows.feed_id, feed.id)
-            ) 
-        )
+        .where(and(eq(feed_follows.user_id, user_id), eq(feed_follows.feed_id, feed.id)))
         .returning();
-    
+
     return result.length > 0;
 }
